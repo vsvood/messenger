@@ -2,9 +2,8 @@ package com.easy.messenger.fragments
 
 import android.os.Bundle
 import android.view.View
-import android.widget.Button
-import android.widget.EditText
 import androidx.fragment.app.Fragment
+import com.easy.messenger.databinding.FragmentNewMessageBinding
 import com.easy.messenger.R
 
 interface OnMessageSendListener {
@@ -13,41 +12,53 @@ interface OnMessageSendListener {
 
 class NewMessageEnterFragment : Fragment(R.layout.fragment_new_message) {
 
-    private lateinit var chatMessage: EditText
-    private lateinit var sendButton: Button
-    private var listener: OnMessageSendListener? = null
+    private var _binding: FragmentNewMessageBinding? = null
+    private val binding get() = _binding!!
 
-    companion object {
-        const val NEW_MESSAGE_TEXT = "new_message_text"
-    }
+    private val listener: OnMessageSendListener?
+        get() = parentFragment as? OnMessageSendListener
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        _binding = FragmentNewMessageBinding.bind(view)
 
-        chatMessage = view.findViewById(R.id.new_message_text)
-        sendButton = view.findViewById(R.id.message_send_button)
-        listener = parentFragment as? OnMessageSendListener
+        setupSendButton()
+        restoreSavedState(savedInstanceState)
+    }
 
-        sendButton.setOnClickListener {
-            val message = chatMessage.text.toString()
+    private fun setupSendButton() {
+        binding.messageSendButton.setOnClickListener {
+            val message = binding.newMessageText.text.toString().trim()
             if (message.isNotEmpty()) {
                 listener?.onMessageSend(message)
-                chatMessage.setText("")
+                clearMessageInput()
             }
+        }
+    }
+
+    private fun clearMessageInput() {
+        binding.newMessageText.text.clear()
+    }
+
+    private fun restoreSavedState(savedInstanceState: Bundle?) {
+        savedInstanceState?.getString(SAVED_MESSAGE_KEY)?.let { savedMessage ->
+            binding.newMessageText.setText(savedMessage)
         }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-
-        outState.putString(NEW_MESSAGE_TEXT, chatMessage.text.toString())
+        outState.putString(SAVED_MESSAGE_KEY, binding.newMessageText.text.toString())
     }
 
-    override fun onViewStateRestored(savedInstanceState: Bundle?) {
-        super.onViewStateRestored(savedInstanceState)
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
 
-        savedInstanceState?. let {
-            chatMessage.setText(it.getString(NEW_MESSAGE_TEXT))
-        }
+    companion object {
+        private const val SAVED_MESSAGE_KEY = "saved_message_text"
+
+        fun newInstance() = NewMessageEnterFragment()
     }
 }

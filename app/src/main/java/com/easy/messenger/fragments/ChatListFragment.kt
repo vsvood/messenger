@@ -3,66 +3,78 @@ package com.easy.messenger.fragments
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.EditText
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.easy.messenger.databinding.FragmentChatListBinding
 import com.easy.messenger.R
 import com.easy.messenger.adapters.ChatListAdapter
 import com.easy.messenger.network.NetworkClient
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ChatListFragment : Fragment(R.layout.fragment_chat_list) {
 
-    private lateinit var recyclerChats: RecyclerView
+    private var _binding: FragmentChatListBinding? = null
+    private val binding get() = _binding!!
+
     private lateinit var chatsAdapter: ChatListAdapter
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ) = FragmentChatListBinding.inflate(inflater, container, false).also {
+        _binding = it
+    }.root
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        chatsAdapter = ChatListAdapter(mutableListOf(), this)
-        displayChats(view)
-        fetchChats()
+        setupRecyclerView()
+        setupClickListeners()
+        loadChats()
     }
 
-    private fun displayChats(view: View) {
-        recyclerChats = view.findViewById(R.id.chats_recycler)
-
-        recyclerChats.layoutManager =
-            LinearLayoutManager(requireContext(), LinearLayoutManager.VERTICAL, false)
-        recyclerChats.adapter = chatsAdapter
-
-        view.findViewById<FloatingActionButton>(R.id.add_chat_button).setOnClickListener {
-            showAddChatDialog()
+    private fun setupRecyclerView() {
+        chatsAdapter = ChatListAdapter(mutableListOf(), this)
+        with(binding.chatsRecycler) {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = chatsAdapter
         }
     }
 
-    private fun showAddChatDialog() {
-        val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_add_chat, null)
-
-        val chatName = dialogView.findViewById<EditText>(R.id.chat_name)
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("New chat")
-            .setView(dialogView)
-            .setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.add_chat_dialog_background))
-            .setPositiveButton("Create") { _, _ ->
-                val name = chatName.text.toString().trim()
-                if (name.isNotEmpty()) {
-                    createChat(name)
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+    private fun setupClickListeners() {
+        binding.addChatButton.setOnClickListener {
+            showCreateChatDialog()
+        }
     }
 
-    private fun createChat(name: String) {
+    private fun showCreateChatDialog() {
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_add_chat, null)
+
+        val editText = dialogView.findViewById<android.widget.EditText>(R.id.chat_name)
+
+        MaterialAlertDialogBuilder(requireContext()).apply {
+            setTitle(getString(R.string.new_chat_title))
+            setView(dialogView)
+            setBackground(ContextCompat.getDrawable(requireContext(), R.drawable.add_chat_dialog_background))
+            setPositiveButton(getString(R.string.create)) { _, _ ->
+                editText.text.toString().trim().takeIf { it.isNotEmpty() }?.let { name ->
+                    createNewChat(name)
+                }
+            }
+            setNegativeButton(getString(R.string.cancel), null)
+            show()
+        }
+    }
+
+    private fun createNewChat(name: String) {
         lifecycleScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
@@ -70,12 +82,12 @@ class ChatListFragment : Fragment(R.layout.fragment_chat_list) {
                 }
                 chatsAdapter.updateChats(response.chats)
             } catch (e: Exception) {
-                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                showError(e.message)
             }
         }
     }
 
-    private fun fetchChats() {
+    private fun loadChats() {
         lifecycleScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
@@ -87,9 +99,25 @@ class ChatListFragment : Fragment(R.layout.fragment_chat_list) {
                 chatsAdapter.updateChats(response.chats)
             } catch (e: Exception) {
                 if (!isAdded) return@launch
-
-                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                showError(e.message)
             }
         }
+    }
+
+    private fun showError(message: String?) {
+        Toast.makeText(
+            requireContext(),
+            getString(R.string.error_template, message),
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
+    companion object {
+        fun newInstance() = ChatListFragment()
     }
 }

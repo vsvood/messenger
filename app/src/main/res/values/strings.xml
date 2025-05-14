@@ -9,4 +9,7 @@
     <string name="chat_icon_description">chat icon</string>
     <string name="choose_chat_text">Who\'s up next?</string>
     <string name="error_template">Error: %1$s</string>
+    <string name="new_chat_title">New chat</string>
+    <string name="create">Create</string>
+    <string name="cancel">Cancel</string>
 </resources>
